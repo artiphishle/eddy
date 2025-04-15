@@ -1,0 +1,19 @@
+plugins {
+    id 'application'
+    id 'java'
+}
+
+wrapper {
+    gradleVersion = '8.10'
+}
+
+group = 'com.ankhorage.eddy'
+version = '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+application {
+    mainClass = 'com.ankhorage.eddy.TextEditor'
+}
