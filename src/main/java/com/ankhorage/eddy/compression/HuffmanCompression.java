@@ -81,7 +81,10 @@ public class HuffmanCompression implements CompressionAlgorithm {
     }
 
     private Node buildHuffmanTree(Map<Byte, Integer> frequencyTable) {
-        PriorityQueue<Node> priorityQueue = new PriorityQueue<>(Comparator.comparingInt(n -> n.frequency));
+        PriorityQueue<Node> priorityQueue = new PriorityQueue<>(
+            Comparator.comparingInt((Node n) -> n.frequency)
+                      .thenComparing(n -> n.data)
+        );
         for (Map.Entry<Byte, Integer> entry : frequencyTable.entrySet()) {
             priorityQueue.add(new Node(entry.getKey(), entry.getValue()));
         }
