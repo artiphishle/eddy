@@ -7,6 +7,7 @@ import java.util.Base64;
 import com.ankhorage.eddy.encryption.CaesarCipher;
 import com.ankhorage.eddy.encryption.EncryptionException;
 import com.ankhorage.eddy.compression.RLECompression;
+import com.ankhorage.eddy.compression.HuffmanCompression;
 import com.ankhorage.eddy.compression.CompressionException;
 
 public class TextEditor extends JFrame {
@@ -14,11 +15,13 @@ public class TextEditor extends JFrame {
     private JTextArea textArea;
     private CaesarCipher caesarCipher;
     private RLECompression rleCompression;
+    private HuffmanCompression huffmanCompression;
 
     public TextEditor() {
         // Initialize our algorithms
         caesarCipher = new CaesarCipher();
         rleCompression = new RLECompression();
+        huffmanCompression = new HuffmanCompression();
 
         // Setup window
         setTitle("Java Text Editor");
@@ -95,14 +98,21 @@ public class TextEditor extends JFrame {
     private JMenu createCompressionMenu() {
         JMenu compressionMenu = new JMenu("Compression");
         
-        JMenuItem compressItem = new JMenuItem("Compress (RLE)");
-        JMenuItem decompressItem = new JMenuItem("Decompress (RLE)");
+        JMenuItem rleCompressItem = new JMenuItem("Compress (RLE)");
+        JMenuItem rleDecompressItem = new JMenuItem("Decompress (RLE)");
+        rleCompressItem.addActionListener(e -> handleRLECompression(true));
+        rleDecompressItem.addActionListener(e -> handleRLECompression(false));
 
-        compressItem.addActionListener(e -> handleCompression(true));
-        decompressItem.addActionListener(e -> handleCompression(false));
+        JMenuItem huffmanCompressItem = new JMenuItem("Compress (Huffman)");
+        JMenuItem huffmanDecompressItem = new JMenuItem("Decompress (Huffman)");
+        huffmanCompressItem.addActionListener(e -> handleHuffmanCompression(true));
+        huffmanDecompressItem.addActionListener(e -> handleHuffmanCompression(false));
 
-        compressionMenu.add(compressItem);
-        compressionMenu.add(decompressItem);
+        compressionMenu.add(rleCompressItem);
+        compressionMenu.add(rleDecompressItem);
+        compressionMenu.addSeparator();
+        compressionMenu.add(huffmanCompressItem);
+        compressionMenu.add(huffmanDecompressItem);
 
         return compressionMenu;
     }
@@ -127,7 +137,7 @@ public class TextEditor extends JFrame {
         }
     }
 
-    private void handleCompression(boolean isCompress) {
+    private void handleRLECompression(boolean isCompress) {
         try {
             String text = getSelectedOrAllText();
             if (isCompress) {
@@ -142,8 +152,26 @@ public class TextEditor extends JFrame {
             String operation = isCompress ? "Compression" : "Decompression";
             showError(operation + " error: " + ex.getMessage());
         } catch (IllegalArgumentException ex) {
-            // This catches Base64 decoding errors
-            showError("Invalid compressed data format");
+            showError("Invalid RLE compressed data format");
+        }
+    }
+
+    private void handleHuffmanCompression(boolean isCompress) {
+        try {
+            String text = getSelectedOrAllText();
+            if (isCompress) {
+                byte[] compressed = huffmanCompression.compress(text.getBytes());
+                updateText(Base64.getEncoder().encodeToString(compressed));
+            } else {
+                byte[] decompressed = huffmanCompression.decompress(
+                    Base64.getDecoder().decode(text));
+                updateText(new String(decompressed));
+            }
+        } catch (CompressionException ex) {
+            String operation = isCompress ? "Compression" : "Decompression";
+            showError(operation + " error: " + ex.getMessage());
+        } catch (IllegalArgumentException ex) {
+            showError("Invalid Huffman compressed data format");
         }
     }
 

@@ -4,6 +4,10 @@ A Java text editor program that will become a coding IDE among others. It can be
 
 ## Compression
 
+### Huffman Coding (1951)
+
+Huffman coding is a lossless data compression algorithm. The idea is to assign variable-length codes to input characters, lengths of the assigned codes are based on the frequencies of corresponding characters. The most frequent character gets the smallest code and the least frequent character gets the largest code.
+
 ### RLE (1967)
 
 Run-length encoding (RLE) is a form of lossless data compression in which runs of data (consecutive occurrences of the same data value) are stored as a single occurrence of that data value and a count of its consecutive occurrences, rather than as the original run. As an imaginary example of the concept, when encoding an image built up from colored dots, the sequence "green green green green green green green green green" is shortened to "green x 9". This is most efficient on data that contains many such runs, for example, simple graphic images such as icons, line drawings, games, and animations. For files that do not have many runs, encoding them with RLE could increase the file size.
