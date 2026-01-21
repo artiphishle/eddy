@@ -59,8 +59,41 @@ public class LZ77Compression implements CompressionAlgorithm {
 
     @Override
     public byte[] decompress(byte[] data) throws CompressionException {
-        // TODO: Implement LZ77 decompression logic
-        return new byte[0];
+        if (data == null) {
+            throw new CompressionException("Input data cannot be null");
+        }
+        if (data.length == 0) {
+            return new byte[0];
+        }
+        if (data.length % 4 != 0) {
+            throw new CompressionException("Invalid compressed data format: length must be a multiple of 4");
+        }
+
+        java.io.ByteArrayOutputStream decompressed = new java.io.ByteArrayOutputStream();
+        int cursor = 0;
+
+        while (cursor < data.length) {
+            int offset = ((data[cursor] & 0xFF) << 8) | (data[cursor + 1] & 0xFF);
+            int length = data[cursor + 2] & 0xFF;
+            byte nextByte = data[cursor + 3];
+
+            if (offset > decompressed.size()) {
+                throw new CompressionException("Invalid offset in compressed data: " + offset);
+            }
+
+            if (length > 0) {
+                int start = decompressed.size() - offset;
+                for (int i = 0; i < length; i++) {
+                    decompressed.write(decompressed.toByteArray()[start + i]);
+                }
+            }
+
+            decompressed.write(nextByte);
+
+            cursor += 4;
+        }
+
+        return decompressed.toByteArray();
     }
 
     @Override
