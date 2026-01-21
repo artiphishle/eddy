@@ -7,6 +7,7 @@ import java.util.Base64;
 import com.ankhorage.eddy.encryption.CaesarCipher;
 import com.ankhorage.eddy.encryption.EncryptionException;
 import com.ankhorage.eddy.compression.RLECompression;
+import com.ankhorage.eddy.compression.LZWCompression;
 import com.ankhorage.eddy.compression.CompressionException;
 
 public class TextEditor extends JFrame {
@@ -14,11 +15,13 @@ public class TextEditor extends JFrame {
     private JTextArea textArea;
     private CaesarCipher caesarCipher;
     private RLECompression rleCompression;
+    private LZWCompression lzwCompression;
 
     public TextEditor() {
         // Initialize our algorithms
         caesarCipher = new CaesarCipher();
         rleCompression = new RLECompression();
+        lzwCompression = new LZWCompression();
 
         // Setup window
         setTitle("Java Text Editor");
@@ -95,14 +98,23 @@ public class TextEditor extends JFrame {
     private JMenu createCompressionMenu() {
         JMenu compressionMenu = new JMenu("Compression");
         
-        JMenuItem compressItem = new JMenuItem("Compress (RLE)");
-        JMenuItem decompressItem = new JMenuItem("Decompress (RLE)");
+        JMenuItem rleCompressItem = new JMenuItem("Compress (RLE)");
+        rleCompressItem.addActionListener(e -> handleRleCompression(true));
+        compressionMenu.add(rleCompressItem);
 
-        compressItem.addActionListener(e -> handleCompression(true));
-        decompressItem.addActionListener(e -> handleCompression(false));
+        JMenuItem rleDecompressItem = new JMenuItem("Decompress (RLE)");
+        rleDecompressItem.addActionListener(e -> handleRleCompression(false));
+        compressionMenu.add(rleDecompressItem);
 
-        compressionMenu.add(compressItem);
-        compressionMenu.add(decompressItem);
+        compressionMenu.addSeparator();
+
+        JMenuItem lzwCompressItem = new JMenuItem("Compress (LZW)");
+        lzwCompressItem.addActionListener(e -> handleLzwCompression(true));
+        compressionMenu.add(lzwCompressItem);
+
+        JMenuItem lzwDecompressItem = new JMenuItem("Decompress (LZW)");
+        lzwDecompressItem.addActionListener(e -> handleLzwCompression(false));
+        compressionMenu.add(lzwDecompressItem);
 
         return compressionMenu;
     }
@@ -127,7 +139,7 @@ public class TextEditor extends JFrame {
         }
     }
 
-    private void handleCompression(boolean isCompress) {
+    private void handleRleCompression(boolean isCompress) {
         try {
             String text = getSelectedOrAllText();
             if (isCompress) {
@@ -140,10 +152,30 @@ public class TextEditor extends JFrame {
             }
         } catch (CompressionException ex) {
             String operation = isCompress ? "Compression" : "Decompression";
-            showError(operation + " error: " + ex.getMessage());
+            showError(operation + " error (RLE): " + ex.getMessage());
         } catch (IllegalArgumentException ex) {
             // This catches Base64 decoding errors
-            showError("Invalid compressed data format");
+            showError("Invalid RLE compressed data format");
+        }
+    }
+
+    private void handleLzwCompression(boolean isCompress) {
+        try {
+            String text = getSelectedOrAllText();
+            if (isCompress) {
+                byte[] compressed = lzwCompression.compress(text.getBytes());
+                updateText(Base64.getEncoder().encodeToString(compressed));
+            } else {
+                byte[] decompressed = lzwCompression.decompress(
+                    Base64.getDecoder().decode(text));
+                updateText(new String(decompressed));
+            }
+        } catch (CompressionException ex) {
+            String operation = isCompress ? "Compression" : "Decompression";
+            showError(operation + " error (LZW): " + ex.getMessage());
+        } catch (IllegalArgumentException ex) {
+            // This catches Base64 decoding errors
+            showError("Invalid LZW compressed data format");
         }
     }
 
