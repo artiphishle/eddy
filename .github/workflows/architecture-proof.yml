@@ -23,7 +23,7 @@ jobs:
 
       - name: Detect architecture from released packages
         run: |
-          bunx @ankhorage/rules-architecture@0.3.0 detect . --json > architecture-detection.json
+          bunx @ankhorage/rules-architecture@0.3.1 detect . --json > architecture-detection.json
           cat architecture-detection.json
 
       - name: Upload architecture detection
