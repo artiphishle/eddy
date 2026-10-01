@@ -1,0 +1,33 @@
+name: Architecture Proof
+
+on:
+  push:
+    branches:
+      - test/8-architecture-proof
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Eddy
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+
+      - name: Detect architecture from released packages
+        run: |
+          bunx @ankhorage/rules-architecture@0.3.0 detect . --json > architecture-detection.json
+          cat architecture-detection.json
+
+      - name: Upload architecture detection
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-detection
+          path: architecture-detection.json
