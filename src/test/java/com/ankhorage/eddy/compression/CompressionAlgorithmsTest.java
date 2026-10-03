@@ -16,6 +16,7 @@ class CompressionAlgorithmsTest {
         List<CompressionAlgorithm> algorithms = List.of(
             new HuffmanCompression(),
             new RLECompression(),
+            new LZ77Compression(),
             new LZWCompression()
         );
 
@@ -29,7 +30,8 @@ class CompressionAlgorithmsTest {
     }
 
     @Test
-    void huffmanRoundTripsSingleSymbolAndEveryByteValue() throws CompressionException {
+    void huffmanRoundTripsSingleSymbolAndEveryByteValue()
+        throws CompressionException {
         HuffmanCompression huffman = new HuffmanCompression();
         byte[] repeated = "A".repeat(512).getBytes(UTF_8);
         byte[] everyByte = new byte[256];
@@ -37,8 +39,14 @@ class CompressionAlgorithmsTest {
             everyByte[index] = (byte) index;
         }
 
-        assertArrayEquals(repeated, huffman.decompress(huffman.compress(repeated)));
-        assertArrayEquals(everyByte, huffman.decompress(huffman.compress(everyByte)));
+        assertArrayEquals(
+            repeated,
+            huffman.decompress(huffman.compress(repeated))
+        );
+        assertArrayEquals(
+            everyByte,
+            huffman.decompress(huffman.compress(everyByte))
+        );
     }
 
     @Test
@@ -48,6 +56,40 @@ class CompressionAlgorithmsTest {
         assertThrows(
             CompressionException.class,
             () -> huffman.decompress(new byte[] {1, 2, 3})
+        );
+    }
+
+    @Test
+    void lz77RoundTripsOverlappingMatchesAndEveryByteValue()
+        throws CompressionException {
+        LZ77Compression lz77 = new LZ77Compression();
+        byte[] overlapping = "A".repeat(1024).getBytes(UTF_8);
+        byte[] everyByte = new byte[256];
+        for (int index = 0; index < everyByte.length; index++) {
+            everyByte[index] = (byte) index;
+        }
+
+        assertArrayEquals(
+            overlapping,
+            lz77.decompress(lz77.compress(overlapping))
+        );
+        assertArrayEquals(
+            everyByte,
+            lz77.decompress(lz77.compress(everyByte))
+        );
+    }
+
+    @Test
+    void lz77RejectsMalformedBackReferences() {
+        LZ77Compression lz77 = new LZ77Compression();
+
+        assertThrows(
+            CompressionException.class,
+            () -> lz77.decompress(new byte[] {0, 1, 1, 65})
+        );
+        assertThrows(
+            CompressionException.class,
+            () -> lz77.decompress(new byte[] {0, 0, 0})
         );
     }
 }

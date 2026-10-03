@@ -10,6 +10,7 @@ import com.ankhorage.eddy.encryption.EncryptionException;
 import com.ankhorage.eddy.compression.CompressionAlgorithm;
 import com.ankhorage.eddy.compression.CompressionException;
 import com.ankhorage.eddy.compression.HuffmanCompression;
+import com.ankhorage.eddy.compression.LZ77Compression;
 import com.ankhorage.eddy.compression.LZWCompression;
 import com.ankhorage.eddy.compression.RLECompression;
 
@@ -19,12 +20,14 @@ public class TextEditor extends JFrame {
     private CaesarCipher caesarCipher;
     private HuffmanCompression huffmanCompression;
     private RLECompression rleCompression;
+    private LZ77Compression lz77Compression;
     private LZWCompression lzwCompression;
 
     public TextEditor() {
         caesarCipher = new CaesarCipher();
         huffmanCompression = new HuffmanCompression();
         rleCompression = new RLECompression();
+        lz77Compression = new LZ77Compression();
         lzwCompression = new LZWCompression();
 
         setTitle("Java Text Editor");
@@ -89,6 +92,8 @@ public class TextEditor extends JFrame {
         compressionMenu.addSeparator();
         addCompressionActions(compressionMenu, rleCompression, "RLE");
         compressionMenu.addSeparator();
+        addCompressionActions(compressionMenu, lz77Compression, "LZ77");
+        compressionMenu.addSeparator();
         addCompressionActions(compressionMenu, lzwCompression, "LZW");
 
         return compressionMenu;
@@ -138,7 +143,9 @@ public class TextEditor extends JFrame {
         try {
             String text = getSelectedOrAllText();
             if (isCompress) {
-                byte[] compressed = algorithm.compress(text.getBytes(StandardCharsets.UTF_8));
+                byte[] compressed = algorithm.compress(
+                    text.getBytes(StandardCharsets.UTF_8)
+                );
                 updateText(Base64.getEncoder().encodeToString(compressed));
             } else {
                 byte[] compressed = Base64.getDecoder().decode(text);
