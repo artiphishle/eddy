@@ -13,6 +13,15 @@ jobs:
       - name: Checkout Eddy
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Verify reversible algorithm contracts
+        run: ./gradlew test
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -24,13 +33,13 @@ jobs:
           node-version: '24'
 
       - name: Verify released PKGViz version
-        run: test "$(npm view pkgviz@0.8.2 version)" = "0.8.2"
+        run: test "$(npm view pkgviz@0.8.3 version)" = "0.8.3"
 
       - name: Run architecture detection without enforcement target
-        run: npx --yes pkgviz@0.8.2 --out pkgviz-detection-audit.json --no-fail-on-rule-violation
+        run: npx --yes pkgviz@0.8.3 --out pkgviz-detection-audit.json --no-fail-on-rule-violation
 
       - name: Run explicit layered architecture evaluation
-        run: npx --yes pkgviz@0.8.2 --out pkgviz-layered-audit.json --architecture-model layered --no-fail-on-rule-violation
+        run: npx --yes pkgviz@0.8.3 --out pkgviz-layered-audit.json --architecture-model layered --no-fail-on-rule-violation
 
       - name: Verify language-neutral Eddy evidence
         run: |
@@ -44,21 +53,24 @@ jobs:
             if (!condition) throw new Error(message);
           };
 
-          console.log('DETECTION_AUDIT_KEYS', Object.keys(detection));
-          console.log('DETECTION_EVALUATION_KEYS', Object.keys(detection.evaluation ?? {}));
-          console.log('SOURCE_GRAPH_TYPE', typeof detection.sourceGraph);
-          console.log('CANDIDATE_KEYS', Object.keys(detection.evaluation?.architecture?.candidates?.[0] ?? {}));
-
           assert(detection.meta?.language?.language === 'java', 'Eddy must be detected as Java.');
           assert(detection.sourceGraph !== undefined,
             'Detection audit must retain the canonical SourceGraph.');
+
           const sourceGraphText = typeof detection.sourceGraph === 'string'
             ? detection.sourceGraph
             : JSON.stringify(detection.sourceGraph);
+
           assert(sourceGraphText.includes('.java'),
             'Canonical SourceGraph must contain real Java source evidence.');
           assert(sourceGraphText.includes('src/main/java'),
             'Canonical SourceGraph must retain Eddy source paths.');
+
+          for (const operation of ['compress', 'decompress', 'encrypt', 'decrypt']) {
+            assert(sourceGraphText.includes(operation),
+              `Canonical SourceGraph must retain the reversible operation "${operation}".`);
+          }
+
           assert(Array.isArray(detection.packageGraph?.nodes) && detection.packageGraph.nodes.length > 0,
             'PKGViz package projection must be derived and present.');
           assert(Array.isArray(detection.evaluation?.architecture?.candidates)
@@ -95,11 +107,12 @@ jobs:
             'Cycle evaluation must coexist in the same audit system.');
 
           const summary = {
-            package: 'pkgviz@0.8.2',
+            package: 'pkgviz@0.8.3',
             language: detection.meta.language,
             sourceGraphBytes: sourceGraphText.length,
             packageNodes: detection.packageGraph.nodes.length,
             packageEdges: detection.packageGraph.edges.length,
+            reversibleOperations: ['compress', 'decompress', 'encrypt', 'decrypt'],
             candidates: candidates.map(candidate => ({
               modelId: candidate.modelId,
               score: candidate.score,
