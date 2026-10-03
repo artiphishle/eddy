@@ -29,6 +29,14 @@ green x 9
 RLE is most efficient on data that contains many repeated values, such as simple graphics, icons, line drawings, or animations.
 On data without long runs, RLE may actually increase the file size.
 
+### LZ77 (1977)
+
+LZ77 is a lossless dictionary compression algorithm introduced by Abraham Lempel and Jacob Ziv in 1977.
+Instead of building an explicit dictionary, it uses a sliding window over previously decoded data and replaces repeated sequences with back-references.
+
+Each Eddy LZ77 token stores a back-reference offset, a match length, and the next literal byte.
+The decompressor supports overlapping back-references, which is essential for efficiently reconstructing repeated sequences such as long runs of the same value.
+
 ### LZW (1984)
 
 LZW (Lempel–Ziv–Welch) is a lossless dictionary-based compression algorithm introduced in 1984 by Terry A. Welch.
