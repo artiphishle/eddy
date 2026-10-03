@@ -7,6 +7,13 @@ The goal is to support all historically relevant algorithms, ordered by their ye
 
 ## Compression
 
+### Huffman Coding (1951)
+
+Huffman Coding is a lossless, frequency-based compression algorithm introduced by David A. Huffman in 1951.
+It builds a prefix-free binary tree from symbol frequencies so common symbols use shorter bit sequences and uncommon symbols use longer ones.
+
+Eddy stores the frequency table together with the packed bitstream so every Huffman compression can always be reversed by the matching decompression operation.
+
 ### RLE (1967)
 
 Run-Length Encoding (RLE) is a form of lossless data compression in which consecutive occurrences of the same value are stored as a single value and a count, rather than as the original sequence.
@@ -60,4 +67,3 @@ While trivially breakable by modern standards, the Caesar cipher is historically
 ## Vision
 
 Eddy aims to become an educational and practical editor where algorithms are not just used, but understood in historical context — showing how ideas evolved from simple substitutions and run-lengths to modern cryptography and compression.
-

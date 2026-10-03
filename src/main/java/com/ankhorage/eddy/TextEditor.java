@@ -3,69 +3,58 @@ package com.ankhorage.eddy;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import com.ankhorage.eddy.encryption.CaesarCipher;
 import com.ankhorage.eddy.encryption.EncryptionException;
-import com.ankhorage.eddy.compression.RLECompression;
-import com.ankhorage.eddy.compression.LZWCompression;
+import com.ankhorage.eddy.compression.CompressionAlgorithm;
 import com.ankhorage.eddy.compression.CompressionException;
+import com.ankhorage.eddy.compression.HuffmanCompression;
+import com.ankhorage.eddy.compression.LZWCompression;
+import com.ankhorage.eddy.compression.RLECompression;
 
 public class TextEditor extends JFrame {
 
     private JTextArea textArea;
     private CaesarCipher caesarCipher;
+    private HuffmanCompression huffmanCompression;
     private RLECompression rleCompression;
     private LZWCompression lzwCompression;
 
     public TextEditor() {
-        // Initialize our algorithms
         caesarCipher = new CaesarCipher();
+        huffmanCompression = new HuffmanCompression();
         rleCompression = new RLECompression();
         lzwCompression = new LZWCompression();
 
-        // Setup window
         setTitle("Java Text Editor");
         setSize(800, 600);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
-        // Text area
         textArea = new JTextArea();
         add(new JScrollPane(textArea), BorderLayout.CENTER);
 
-        // Menu bar
         JMenuBar menuBar = new JMenuBar();
-        
-        // File menu
-        JMenu fileMenu = createFileMenu();
-        menuBar.add(fileMenu);
-
-        // Security menu
-        JMenu securityMenu = createSecurityMenu();
-        menuBar.add(securityMenu);
-
-        // Compression menu
-        JMenu compressionMenu = createCompressionMenu();
-        menuBar.add(compressionMenu);
-
+        menuBar.add(createFileMenu());
+        menuBar.add(createSecurityMenu());
+        menuBar.add(createCompressionMenu());
         setJMenuBar(menuBar);
     }
 
     private JMenu createFileMenu() {
         JMenu fileMenu = new JMenu("File");
-        
+
         JMenuItem newItem = new JMenuItem("New");
         JMenuItem openItem = new JMenuItem("Open");
         JMenuItem saveItem = new JMenuItem("Save");
         JMenuItem quitItem = new JMenuItem("Quit");
 
-        // Add items to menu
         fileMenu.add(newItem);
         fileMenu.add(openItem);
         fileMenu.add(saveItem);
         fileMenu.addSeparator();
         fileMenu.add(quitItem);
 
-        // Action listeners
         newItem.addActionListener(e -> textArea.setText(""));
         openItem.addActionListener(e -> handleFileOpen());
         saveItem.addActionListener(e -> handleFileSave());
@@ -76,14 +65,12 @@ public class TextEditor extends JFrame {
 
     private JMenu createSecurityMenu() {
         JMenu securityMenu = new JMenu("Security");
-        
-        // Create Encrypt submenu
+
         JMenu encryptMenu = new JMenu("Encrypt");
         JMenuItem caesarEncryptItem = new JMenuItem("Caesar Cipher");
         caesarEncryptItem.addActionListener(e -> handleCaesarOperation(true));
         encryptMenu.add(caesarEncryptItem);
 
-        // Create Decrypt submenu
         JMenu decryptMenu = new JMenu("Decrypt");
         JMenuItem caesarDecryptItem = new JMenuItem("Caesar Cipher");
         caesarDecryptItem.addActionListener(e -> handleCaesarOperation(false));
@@ -97,39 +84,43 @@ public class TextEditor extends JFrame {
 
     private JMenu createCompressionMenu() {
         JMenu compressionMenu = new JMenu("Compression");
-        
-        JMenuItem rleCompressItem = new JMenuItem("Compress (RLE)");
-        rleCompressItem.addActionListener(e -> handleRleCompression(true));
-        compressionMenu.add(rleCompressItem);
 
-        JMenuItem rleDecompressItem = new JMenuItem("Decompress (RLE)");
-        rleDecompressItem.addActionListener(e -> handleRleCompression(false));
-        compressionMenu.add(rleDecompressItem);
-
+        addCompressionActions(compressionMenu, huffmanCompression, "Huffman");
         compressionMenu.addSeparator();
-
-        JMenuItem lzwCompressItem = new JMenuItem("Compress (LZW)");
-        lzwCompressItem.addActionListener(e -> handleLzwCompression(true));
-        compressionMenu.add(lzwCompressItem);
-
-        JMenuItem lzwDecompressItem = new JMenuItem("Decompress (LZW)");
-        lzwDecompressItem.addActionListener(e -> handleLzwCompression(false));
-        compressionMenu.add(lzwDecompressItem);
+        addCompressionActions(compressionMenu, rleCompression, "RLE");
+        compressionMenu.addSeparator();
+        addCompressionActions(compressionMenu, lzwCompression, "LZW");
 
         return compressionMenu;
     }
 
+    private void addCompressionActions(
+        JMenu menu,
+        CompressionAlgorithm algorithm,
+        String label
+    ) {
+        JMenuItem compressItem = new JMenuItem("Compress (" + label + ")");
+        compressItem.addActionListener(e -> handleCompression(algorithm, label, true));
+        menu.add(compressItem);
+
+        JMenuItem decompressItem = new JMenuItem("Decompress (" + label + ")");
+        decompressItem.addActionListener(e -> handleCompression(algorithm, label, false));
+        menu.add(decompressItem);
+    }
+
     private void handleCaesarOperation(boolean isEncrypt) {
         String operation = isEncrypt ? "encryption" : "decryption";
-        String key = JOptionPane.showInputDialog(this,
+        String key = JOptionPane.showInputDialog(
+            this,
             "Enter shift value (0-25):",
             "Caesar Cipher " + operation,
-            JOptionPane.QUESTION_MESSAGE);
-        
+            JOptionPane.QUESTION_MESSAGE
+        );
+
         if (key != null) {
             try {
                 String text = getSelectedOrAllText();
-                String result = isEncrypt 
+                String result = isEncrypt
                     ? caesarCipher.encrypt(text, key)
                     : caesarCipher.decrypt(text, key);
                 updateText(result);
@@ -139,43 +130,26 @@ public class TextEditor extends JFrame {
         }
     }
 
-    private void handleRleCompression(boolean isCompress) {
+    private void handleCompression(
+        CompressionAlgorithm algorithm,
+        String label,
+        boolean isCompress
+    ) {
         try {
             String text = getSelectedOrAllText();
             if (isCompress) {
-                byte[] compressed = rleCompression.compress(text.getBytes());
+                byte[] compressed = algorithm.compress(text.getBytes(StandardCharsets.UTF_8));
                 updateText(Base64.getEncoder().encodeToString(compressed));
             } else {
-                byte[] decompressed = rleCompression.decompress(
-                    Base64.getDecoder().decode(text));
-                updateText(new String(decompressed));
+                byte[] compressed = Base64.getDecoder().decode(text);
+                byte[] decompressed = algorithm.decompress(compressed);
+                updateText(new String(decompressed, StandardCharsets.UTF_8));
             }
         } catch (CompressionException ex) {
             String operation = isCompress ? "Compression" : "Decompression";
-            showError(operation + " error (RLE): " + ex.getMessage());
+            showError(operation + " error (" + label + "): " + ex.getMessage());
         } catch (IllegalArgumentException ex) {
-            // This catches Base64 decoding errors
-            showError("Invalid RLE compressed data format");
-        }
-    }
-
-    private void handleLzwCompression(boolean isCompress) {
-        try {
-            String text = getSelectedOrAllText();
-            if (isCompress) {
-                byte[] compressed = lzwCompression.compress(text.getBytes());
-                updateText(Base64.getEncoder().encodeToString(compressed));
-            } else {
-                byte[] decompressed = lzwCompression.decompress(
-                    Base64.getDecoder().decode(text));
-                updateText(new String(decompressed));
-            }
-        } catch (CompressionException ex) {
-            String operation = isCompress ? "Compression" : "Decompression";
-            showError(operation + " error (LZW): " + ex.getMessage());
-        } catch (IllegalArgumentException ex) {
-            // This catches Base64 decoding errors
-            showError("Invalid LZW compressed data format");
+            showError("Invalid " + label + " compressed data format");
         }
     }
 
