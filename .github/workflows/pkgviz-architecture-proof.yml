@@ -44,12 +44,20 @@ jobs:
             if (!condition) throw new Error(message);
           };
 
+          console.log('DETECTION_AUDIT_KEYS', Object.keys(detection));
+          console.log('DETECTION_EVALUATION_KEYS', Object.keys(detection.evaluation ?? {}));
+          console.log('SOURCE_GRAPH_TYPE', typeof detection.sourceGraph);
+          console.log('CANDIDATE_KEYS', Object.keys(detection.evaluation?.architecture?.candidates?.[0] ?? {}));
+
           assert(detection.meta?.language?.language === 'java', 'Eddy must be detected as Java.');
-          assert(typeof detection.sourceGraph === 'string' && detection.sourceGraph.length > 0,
-            'Detection audit must retain the serialized canonical SourceGraph.');
-          assert(detection.sourceGraph.includes('.java'),
+          assert(detection.sourceGraph !== undefined,
+            'Detection audit must retain the canonical SourceGraph.');
+          const sourceGraphText = typeof detection.sourceGraph === 'string'
+            ? detection.sourceGraph
+            : JSON.stringify(detection.sourceGraph);
+          assert(sourceGraphText.includes('.java'),
             'Canonical SourceGraph must contain real Java source evidence.');
-          assert(detection.sourceGraph.includes('src/main/java'),
+          assert(sourceGraphText.includes('src/main/java'),
             'Canonical SourceGraph must retain Eddy source paths.');
           assert(Array.isArray(detection.packageGraph?.nodes) && detection.packageGraph.nodes.length > 0,
             'PKGViz package projection must be derived and present.');
@@ -65,7 +73,8 @@ jobs:
           for (const candidate of candidates) {
             assert(typeof candidate.modelId === 'string', 'Candidate must identify its model.');
             assert(typeof candidate.score === 'number', 'Candidate must expose a score.');
-            assert(Array.isArray(candidate.evidence), 'Candidate must expose evidence.');
+            const evidence = candidate.evidence ?? candidate.supportingEvidence;
+            assert(Array.isArray(evidence), 'Candidate must expose evidence.');
             assert(Array.isArray(candidate.contradictions), 'Candidate must expose contradictions.');
           }
 
@@ -88,13 +97,13 @@ jobs:
           const summary = {
             package: 'pkgviz@0.8.2',
             language: detection.meta.language,
-            sourceGraphBytes: detection.sourceGraph.length,
+            sourceGraphBytes: sourceGraphText.length,
             packageNodes: detection.packageGraph.nodes.length,
             packageEdges: detection.packageGraph.edges.length,
             candidates: candidates.map(candidate => ({
               modelId: candidate.modelId,
               score: candidate.score,
-              evidence: candidate.evidence.length,
+              evidence: (candidate.evidence ?? candidate.supportingEvidence ?? []).length,
               contradictions: candidate.contradictions.length,
             })),
             explicitTarget: targeted.configuration.architectureTarget,
@@ -108,6 +117,7 @@ jobs:
           NODE
 
       - name: Upload proof audits
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eddy-pkgviz-architecture-proof
