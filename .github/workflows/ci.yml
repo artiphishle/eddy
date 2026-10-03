@@ -22,5 +22,65 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Checkout PKGViz Gradle plugin source
+        uses: actions/checkout@v4
+        with:
+          repository: artiphishle/pkgviz
+          ref: 376fb17e4f002316c291509324d7e1e9e7015cfb
+          path: .pkgviz-gradle-plugin
+
+      - name: Install exact PKGViz dependencies
+        run: bun install --cwd .pkgviz-gradle-plugin --frozen-lockfile
+
+      - name: Build PKGViz Gradle plugin
+        run: ./gradlew --no-daemon -p .pkgviz-gradle-plugin/gradle-plugin jar
+
+      - name: Configure PKGViz Gradle audit
+        shell: bash
+        run: |
+          plugin_jar="$(find .pkgviz-gradle-plugin/gradle-plugin/build/libs -maxdepth 1 -name 'pkgviz-gradle-plugin-*.jar' -print -quit)"
+          test -n "$plugin_jar"
+          echo "PKGVIZ_PLUGIN_JAR=$GITHUB_WORKSPACE/$plugin_jar" >> "$GITHUB_ENV"
+          echo "PKGVIZ_CLI_PATH=$GITHUB_WORKSPACE/.pkgviz-gradle-plugin/bin/pkgviz.ts" >> "$GITHUB_ENV"
+
+          cat > "$RUNNER_TEMP/pkgviz.init.gradle" <<'GRADLE'
+          initscript {
+              dependencies {
+                  classpath files(System.getenv('PKGVIZ_PLUGIN_JAR'))
+              }
+          }
+
+          gradle.beforeProject { project ->
+              if (project == project.rootProject) {
+                  project.pluginManager.apply(io.github.artiphishle.pkgviz.gradle.PkgvizPlugin)
+                  def extension = project.extensions.getByName('pkgviz')
+                  extension.executable.set('bun')
+                  extension.cliPath.set(project.file(System.getenv('PKGVIZ_CLI_PATH')))
+                  extension.rules.set(['cyclic-dependencies=block'])
+                  extension.failOnRuleViolation.set(true)
+              }
+          }
+          GRADLE
+
+          echo "PKGVIZ_INIT_SCRIPT=$RUNNER_TEMP/pkgviz.init.gradle" >> "$GITHUB_ENV"
+
       - name: Build and test
-        run: ./gradlew clean build
+        run: ./gradlew --no-daemon -I "$PKGVIZ_INIT_SCRIPT" clean build
+
+      - name: Upload PKGViz audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eddy-pkgviz-audit
+          path: build/pkgviz-audit.json
+          if-no-files-found: warn

@@ -39,7 +39,7 @@ jobs:
         run: |
           bun "$GITHUB_WORKSPACE/.pkgviz-proof/bin/pkgviz.ts" \
             --architecture-model hexagonal \
-            --rule cyclic-dependencies=audit \
+            --rule cyclic-dependencies=off \
             --no-fail-on-rule-violation \
             --out pkgviz-audit.json \
             --verbose
@@ -90,9 +90,6 @@ jobs:
             fail('Generic Rules evaluation is missing from the Audit.');
           }
 
-          const cycleRule = audit.evaluation?.rules?.find(rule => rule.id === 'cyclic-dependencies');
-          if (!cycleRule) fail('The cyclic-dependencies rule must coexist in the same Audit.');
-
           const summary = {
             target: configuredTarget,
             candidates: detection.candidates.map(candidate => ({
@@ -106,10 +103,6 @@ jobs:
             })),
             genericFindings: genericRules.findings.length,
             genericDiagnostics: genericRules.diagnostics.length,
-            cycleRule: {
-              status: cycleRule.status,
-              policy: cycleRule.policy,
-            },
           };
 
           console.log(JSON.stringify(summary, null, 2));
