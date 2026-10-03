@@ -17,27 +17,17 @@ jobs:
       - name: Checkout Eddy
         uses: actions/checkout@v4
 
-      - name: Checkout merged PKGViz 0.8.3 source
-        uses: actions/checkout@v4
-        with:
-          repository: artiphishle/pkgviz
-          ref: 840ffba836939caaa25d3da94a1f3b1e8a0dd8b4
-          path: .pkgviz-proof
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.2'
 
-      - name: Install exact PKGViz dependencies
-        run: bun install --cwd .pkgviz-proof --frozen-lockfile
+      - name: Verify released PKGViz version
+        run: test "$(npm view pkgviz@0.8.3 version)" = "0.8.3"
 
-      - name: Verify PKGViz proof version
-        run: test "$(node -p "require('./.pkgviz-proof/package.json').version")" = "0.8.3"
-
-      - name: Analyze Eddy through merged PKGViz
+      - name: Analyze Eddy through released PKGViz
         run: |
-          bun "$GITHUB_WORKSPACE/.pkgviz-proof/bin/pkgviz.ts" \
+          bunx pkgviz@0.8.3 \
             --architecture-model hexagonal \
             --rule cyclic-dependencies=audit \
             --no-fail-on-rule-violation \
@@ -118,6 +108,6 @@ jobs:
       - name: Upload PKGViz Audit evidence
         uses: actions/upload-artifact@v4
         with:
-          name: eddy-pkgviz-architecture-audit
+          name: eddy-pkgviz-registry-architecture-audit
           path: pkgviz-audit.json
           if-no-files-found: error
