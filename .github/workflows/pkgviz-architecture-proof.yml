@@ -24,13 +24,13 @@ jobs:
           node-version: '24'
 
       - name: Verify released PKGViz version
-        run: test "$(npm view pkgviz@0.8.3 version)" = "0.8.3"
+        run: test "$(npm view pkgviz@0.8.2 version)" = "0.8.2"
 
       - name: Run architecture detection without enforcement target
-        run: npx --yes pkgviz@0.8.3 --out pkgviz-detection-audit.json --no-fail-on-rule-violation
+        run: npx --yes pkgviz@0.8.2 --out pkgviz-detection-audit.json --no-fail-on-rule-violation
 
       - name: Run explicit layered architecture evaluation
-        run: npx --yes pkgviz@0.8.3 --out pkgviz-layered-audit.json --architecture-model layered --no-fail-on-rule-violation
+        run: npx --yes pkgviz@0.8.2 --out pkgviz-layered-audit.json --architecture-model layered --no-fail-on-rule-violation
 
       - name: Verify language-neutral Eddy evidence
         run: |
@@ -86,7 +86,7 @@ jobs:
             'Cycle evaluation must coexist in the same audit system.');
 
           const summary = {
-            package: 'pkgviz@0.8.3',
+            package: 'pkgviz@0.8.2',
             language: detection.meta.language,
             sourceGraphBytes: detection.sourceGraph.length,
             packageNodes: detection.packageGraph.nodes.length,
