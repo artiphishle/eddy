@@ -17,17 +17,27 @@ jobs:
       - name: Checkout Eddy
         uses: actions/checkout@v4
 
+      - name: Checkout merged PKGViz 0.8.3 source
+        uses: actions/checkout@v4
+        with:
+          repository: artiphishle/pkgviz
+          ref: 840ffba836939caaa25d3da94a1f3b1e8a0dd8b4
+          path: .pkgviz-proof
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.2'
 
-      - name: Verify released PKGViz CLI
-        run: bunx pkgviz@0.8.3 --help | grep -- '--architecture-model'
+      - name: Install exact PKGViz dependencies
+        run: bun install --cwd .pkgviz-proof --frozen-lockfile
 
-      - name: Analyze Eddy through released PKGViz
+      - name: Verify PKGViz proof version
+        run: test "$(node -p "require('./.pkgviz-proof/package.json').version")" = "0.8.3"
+
+      - name: Analyze Eddy through merged PKGViz
         run: |
-          bunx pkgviz@0.8.3 \
+          bun "$GITHUB_WORKSPACE/.pkgviz-proof/bin/pkgviz.ts" \
             --architecture-model hexagonal \
             --rule cyclic-dependencies=audit \
             --no-fail-on-rule-violation \
