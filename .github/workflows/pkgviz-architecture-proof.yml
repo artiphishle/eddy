@@ -1,0 +1,123 @@
+name: PKGViz architecture proof
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Eddy
+        uses: actions/checkout@v4
+
+      - name: Checkout merged PKGViz 0.8.3 source
+        uses: actions/checkout@v4
+        with:
+          repository: artiphishle/pkgviz
+          ref: 840ffba836939caaa25d3da94a1f3b1e8a0dd8b4
+          path: .pkgviz-proof
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+
+      - name: Install exact PKGViz dependencies
+        run: bun install --cwd .pkgviz-proof --frozen-lockfile
+
+      - name: Verify PKGViz proof version
+        run: test "$(node -p "require('./.pkgviz-proof/package.json').version")" = "0.8.3"
+
+      - name: Analyze Eddy through merged PKGViz
+        run: |
+          bun "$GITHUB_WORKSPACE/.pkgviz-proof/bin/pkgviz.ts" \
+            --architecture-model hexagonal \
+            --rule cyclic-dependencies=audit \
+            --no-fail-on-rule-violation \
+            --out pkgviz-audit.json \
+            --verbose
+
+      - name: Validate canonical architecture audit
+        run: |
+          node - <<'NODE'
+          const { readFileSync } = require('node:fs');
+
+          const audit = JSON.parse(readFileSync('pkgviz-audit.json', 'utf8'));
+          const fail = message => {
+            throw new Error(message);
+          };
+
+          if (typeof audit.sourceGraph !== 'string' || audit.sourceGraph.length === 0) {
+            fail('Audit must retain the serialized canonical SourceGraph.');
+          }
+
+          const detection = audit.evaluation?.architecture;
+          if (!detection || !Array.isArray(detection.candidates) || detection.candidates.length === 0) {
+            fail('Architecture detection must return at least one candidate for the real Eddy repository.');
+          }
+
+          for (const candidate of detection.candidates) {
+            if (typeof candidate.modelId !== 'string') fail('Architecture candidate modelId is missing.');
+            if (typeof candidate.confidence !== 'number') fail('Architecture candidate confidence is missing.');
+            if (typeof candidate.score !== 'number') fail('Architecture candidate score is missing.');
+            if (!Array.isArray(candidate.supportingEvidence)) fail('Architecture candidate evidence is missing.');
+            if (!Array.isArray(candidate.contradictions)) fail('Architecture candidate contradictions are missing.');
+            if (!Array.isArray(candidate.unavailableCapabilities)) {
+              fail('Architecture candidate capability limitations are missing.');
+            }
+            if (!Array.isArray(candidate.roleAssignments)) fail('Architecture role assignments are missing.');
+          }
+
+          const configuredTarget = audit.configuration?.architectureTarget;
+          if (configuredTarget?.kind !== 'model' || configuredTarget.id !== 'hexagonal') {
+            fail('The proof must use the explicitly configured hexagonal model target.');
+          }
+
+          const evaluation = audit.evaluation?.architectureEvaluation;
+          if (!evaluation || evaluation.target?.kind !== 'model' || evaluation.target.id !== 'hexagonal') {
+            fail('Explicit architecture target evaluation is missing from the Audit.');
+          }
+
+          const genericRules = audit.evaluation?.genericRules;
+          if (!genericRules || !Array.isArray(genericRules.findings) || !Array.isArray(genericRules.diagnostics)) {
+            fail('Generic Rules evaluation is missing from the Audit.');
+          }
+
+          const cycleRule = audit.evaluation?.rules?.find(rule => rule.id === 'cyclic-dependencies');
+          if (!cycleRule) fail('The cyclic-dependencies rule must coexist in the same Audit.');
+
+          const summary = {
+            target: configuredTarget,
+            candidates: detection.candidates.map(candidate => ({
+              modelId: candidate.modelId,
+              confidence: candidate.confidence,
+              score: candidate.score,
+              evidence: candidate.supportingEvidence.length,
+              contradictions: candidate.contradictions.length,
+              unavailableCapabilities: candidate.unavailableCapabilities,
+              roles: candidate.roleAssignments.length,
+            })),
+            genericFindings: genericRules.findings.length,
+            genericDiagnostics: genericRules.diagnostics.length,
+            cycleRule: {
+              status: cycleRule.status,
+              policy: cycleRule.policy,
+            },
+          };
+
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+
+      - name: Upload PKGViz Audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: eddy-pkgviz-architecture-audit
+          path: pkgviz-audit.json
+          if-no-files-found: error
