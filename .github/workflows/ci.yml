@@ -36,7 +36,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: artiphishle/pkgviz
-          ref: 2a08581dcbf77bed084a1cfcea339b59ed0d52ce
+          ref: 376fb17e4f002316c291509324d7e1e9e7015cfb
           path: .pkgviz-gradle-plugin
 
       - name: Install exact PKGViz dependencies
