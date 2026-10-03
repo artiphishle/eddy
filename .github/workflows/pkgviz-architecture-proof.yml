@@ -1,0 +1,116 @@
+name: PKGViz Architecture Proof
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Eddy
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify released PKGViz version
+        run: test "$(npm view pkgviz@0.8.3 version)" = "0.8.3"
+
+      - name: Run architecture detection without enforcement target
+        run: npx --yes pkgviz@0.8.3 --out pkgviz-detection-audit.json --no-fail-on-rule-violation
+
+      - name: Run explicit layered architecture evaluation
+        run: npx --yes pkgviz@0.8.3 --out pkgviz-layered-audit.json --architecture-model layered --no-fail-on-rule-violation
+
+      - name: Verify language-neutral Eddy evidence
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const detection = JSON.parse(fs.readFileSync('pkgviz-detection-audit.json', 'utf8'));
+          const targeted = JSON.parse(fs.readFileSync('pkgviz-layered-audit.json', 'utf8'));
+
+          const assert = (condition, message) => {
+            if (!condition) throw new Error(message);
+          };
+
+          assert(detection.meta?.language?.language === 'java', 'Eddy must be detected as Java.');
+          assert(typeof detection.sourceGraph === 'string' && detection.sourceGraph.length > 0,
+            'Detection audit must retain the serialized canonical SourceGraph.');
+          assert(detection.sourceGraph.includes('.java'),
+            'Canonical SourceGraph must contain real Java source evidence.');
+          assert(detection.sourceGraph.includes('src/main/java'),
+            'Canonical SourceGraph must retain Eddy source paths.');
+          assert(Array.isArray(detection.packageGraph?.nodes) && detection.packageGraph.nodes.length > 0,
+            'PKGViz package projection must be derived and present.');
+          assert(Array.isArray(detection.evaluation?.architecture?.candidates)
+            && detection.evaluation.architecture.candidates.length > 0,
+            'Architecture detection must return candidates.');
+          assert(detection.configuration?.architectureTarget === undefined,
+            'Detection-only audit must not select an enforcement target.');
+          assert(detection.evaluation?.architectureEvaluation === undefined,
+            'Detection-only audit must not run target evaluation.');
+
+          const candidates = detection.evaluation.architecture.candidates;
+          for (const candidate of candidates) {
+            assert(typeof candidate.modelId === 'string', 'Candidate must identify its model.');
+            assert(typeof candidate.score === 'number', 'Candidate must expose a score.');
+            assert(Array.isArray(candidate.evidence), 'Candidate must expose evidence.');
+            assert(Array.isArray(candidate.contradictions), 'Candidate must expose contradictions.');
+          }
+
+          assert(targeted.configuration?.architectureTarget?.kind === 'model'
+            && targeted.configuration.architectureTarget.id === 'layered',
+            'Target audit must explicitly select layered.');
+          assert(targeted.configuration?.failOnRuleViolation === false,
+            'Initial architecture proof must remain non-blocking.');
+          assert(targeted.evaluation?.architectureEvaluation?.target?.kind === 'model'
+            && targeted.evaluation.architectureEvaluation.target.id === 'layered',
+            'Architecture evaluation must retain the explicit target.');
+          assert(targeted.evaluation?.architectureEvaluation?.result?.modelId === 'layered',
+            'Architecture evaluation must execute the selected model.');
+          assert(Array.isArray(targeted.evaluation?.genericRules?.findings),
+            'Generic Rules findings must be present in the normal audit model.');
+          assert(Array.isArray(targeted.evaluation?.rules)
+            && targeted.evaluation.rules.some(rule => rule.id === 'cyclic-dependencies'),
+            'Cycle evaluation must coexist in the same audit system.');
+
+          const summary = {
+            package: 'pkgviz@0.8.3',
+            language: detection.meta.language,
+            sourceGraphBytes: detection.sourceGraph.length,
+            packageNodes: detection.packageGraph.nodes.length,
+            packageEdges: detection.packageGraph.edges.length,
+            candidates: candidates.map(candidate => ({
+              modelId: candidate.modelId,
+              score: candidate.score,
+              evidence: candidate.evidence.length,
+              contradictions: candidate.contradictions.length,
+            })),
+            explicitTarget: targeted.configuration.architectureTarget,
+            architectureFindings: targeted.evaluation.architectureEvaluation.result.findings.length,
+            genericRuleFindings: targeted.evaluation.genericRules.findings.map(finding => finding.ruleId),
+            cycleStatus: targeted.evaluation.rules.find(rule => rule.id === 'cyclic-dependencies')?.status,
+          };
+
+          console.log('EDDY_PKGVIZ_ARCHITECTURE_PROOF');
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+
+      - name: Upload proof audits
+        uses: actions/upload-artifact@v4
+        with:
+          name: eddy-pkgviz-architecture-proof
+          path: |
+            pkgviz-detection-audit.json
+            pkgviz-layered-audit.json
